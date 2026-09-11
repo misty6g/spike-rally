@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Spike Rally">
+  <circle cx="32" cy="32" r="30" fill="#e07a3d"/>
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#2b2118" stroke-width="3"/>
+  <path d="M32 2 C44 18 44 46 32 62 M32 2 C20 18 20 46 32 62 M2 32 C18 40 46 40 62 32" fill="none" stroke="#2b2118" stroke-width="2.5"/>
+</svg>

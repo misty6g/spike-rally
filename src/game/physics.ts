@@ -7,6 +7,9 @@ export const HIT_IMPULSE = 520;
 export const BALL_BOUNCE = 0.78;
 export const FRICTION = 0.86;
 export const AIR_DRAG = 0.995;
+export const PLAYER_BODY_OFFSET = 28;
+export const PLAYER_REACH = 34;
+export const NET_HALF_WIDTH = 6;
 
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -21,6 +24,10 @@ export function dist(a: Vec2, b: Vec2): number {
 export function sideBounds(side: Side, width: number, netX: number): { minX: number; maxX: number } {
   if (side === "left") return { minX: 28, maxX: netX - 18 };
   return { minX: netX + 18, maxX: width - 28 };
+}
+
+export function playerCenter(p: PlayerState): Vec2 {
+  return { x: p.x, y: p.y - PLAYER_BODY_OFFSET };
 }
 
 export function integratePlayer(p: PlayerState, dt: number, state: GameState): void {
@@ -46,7 +53,6 @@ export function integrateBall(ball: BallState, dt: number, state: GameState): vo
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
 
-  // Walls
   if (ball.x - ball.radius < 0) {
     ball.x = ball.radius;
     ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
@@ -56,17 +62,21 @@ export function integrateBall(ball: BallState, dt: number, state: GameState): vo
     ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
   }
 
-  // Net collision (simple AABB vs circle)
-  const netLeft = state.netX - 6;
-  const netRight = state.netX + 6;
+  const netLeft = state.netX - NET_HALF_WIDTH;
+  const netRight = state.netX + NET_HALF_WIDTH;
   const netTop = state.groundY - state.netHeight;
-  if (
+  const hitsNet =
     ball.x + ball.radius > netLeft &&
     ball.x - ball.radius < netRight &&
     ball.y + ball.radius > netTop &&
-    ball.y < state.groundY
-  ) {
-    if (ball.x < state.netX) {
+    ball.y - ball.radius < state.groundY;
+
+  if (hitsNet) {
+    const hittingFromAbove = ball.y < netTop + ball.radius && ball.vy > 0;
+    if (hittingFromAbove) {
+      ball.y = netTop - ball.radius;
+      ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
+    } else if (ball.x < state.netX) {
       ball.x = netLeft - ball.radius;
       ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
     } else {
@@ -75,7 +85,6 @@ export function integrateBall(ball: BallState, dt: number, state: GameState): vo
     }
   }
 
-  // Floor bounce (soft) — scoring handled elsewhere when ball settles low with low speed
   if (ball.y + ball.radius >= state.groundY) {
     ball.y = state.groundY - ball.radius;
     ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
@@ -84,21 +93,21 @@ export function integrateBall(ball: BallState, dt: number, state: GameState): vo
 }
 
 export function resolvePlayerBall(player: PlayerState, ball: BallState, hitBoost: boolean): boolean {
-  const d = dist({ x: player.x, y: player.y - 28 }, { x: ball.x, y: ball.y });
-  const reach = ball.radius + 34;
+  const center = playerCenter(player);
+  const d = dist(center, { x: ball.x, y: ball.y });
+  const reach = ball.radius + PLAYER_REACH;
   if (d > reach || d === 0) return false;
 
-  const nx = (ball.x - player.x) / d;
-  const ny = (ball.y - (player.y - 28)) / d;
+  const nx = (ball.x - center.x) / d;
+  const ny = (ball.y - center.y) / d;
   const impulse = hitBoost ? HIT_IMPULSE * 1.35 : HIT_IMPULSE;
   ball.vx = nx * impulse + player.vx * 0.35;
   ball.vy = Math.min(-280, ny * impulse + player.vy * 0.2);
-  // Separate
-  ball.x = player.x + nx * (reach + 1);
-  ball.y = player.y - 28 + ny * (reach + 1);
+  ball.x = center.x + nx * (reach + 1);
+  ball.y = center.y + ny * (reach + 1);
   return true;
 }
 
-export function ballTouchingGround(ball: BallState, groundY: number, eps = 2): boolean {
-  return ball.y + ball.radius >= groundY - eps && Math.abs(ball.vy) < 120;
+export function ballLanded(ball: BallState, groundY: number, eps = 0.5): boolean {
+  return ball.y + ball.radius >= groundY - eps;
 }

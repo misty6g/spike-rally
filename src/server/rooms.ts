@@ -1,10 +1,6 @@
 import { randomBytes } from "crypto";
-import {
-  continueAfterPoint,
-  createInitialState,
-  serializeState,
-  step,
-} from "../game/engine";
+import { continueAfterPoint, createInitialState, resetMatch, serializeState, step } from "../game/engine";
+import { isValidWinScore } from "../game/scoring";
 import { DEFAULT_INPUT, type GameState, type PlayerInput, type Side } from "../game/types";
 
 export type ClientRole = Side | "spectator";
@@ -25,7 +21,7 @@ export interface Room {
   lastTick: number;
 }
 
-const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function generateRoomCode(len = 5): string {
   const bytes = randomBytes(len);
@@ -34,17 +30,29 @@ export function generateRoomCode(len = 5): string {
   return out;
 }
 
+export function emptyInputs(): Record<Side, PlayerInput> {
+  return { left: { ...DEFAULT_INPUT }, right: { ...DEFAULT_INPUT } };
+}
+
+export function hasBothPlayers(room: Room): boolean {
+  const roles = new Set(
+    [...room.clients.values()].filter((c) => c.role !== "spectator").map((c) => c.role)
+  );
+  return roles.has("left") && roles.has("right");
+}
+
 export class RoomManager {
   rooms = new Map<string, Room>();
 
-  create(mode: "local" | "online" = "online"): Room {
+  create(mode: "local" | "online" = "online", winScore = 15): Room {
     let code = generateRoomCode();
     while (this.rooms.has(code)) code = generateRoomCode();
+    const score = isValidWinScore(winScore) ? winScore : 15;
     const room: Room = {
       code,
       mode,
-      state: createInitialState(),
-      inputs: { left: { ...DEFAULT_INPUT }, right: { ...DEFAULT_INPUT } },
+      state: createInitialState({ winScore: score }),
+      inputs: emptyInputs(),
       clients: new Map(),
       pointTimer: null,
       lastTick: Date.now(),
@@ -54,7 +62,7 @@ export class RoomManager {
   }
 
   get(code: string): Room | undefined {
-    return this.rooms.get(code.toUpperCase());
+    return this.rooms.get(code.trim().toUpperCase());
   }
 
   join(code: string, client: Omit<RoomClient, "role">): { room: Room; role: ClientRole } | null {
@@ -75,29 +83,42 @@ export class RoomManager {
     const room = this.get(code);
     if (!room) return;
     room.clients.delete(clientId);
-    if (room.clients.size === 0) this.rooms.delete(code);
+    if (room.clients.size === 0) this.rooms.delete(code.toUpperCase());
   }
 
   setInput(room: Room, side: Side, partial: Partial<PlayerInput>): void {
     room.inputs[side] = { ...room.inputs[side], ...partial };
   }
 
+  rematch(room: Room): void {
+    resetMatch(room.state);
+    room.inputs = emptyInputs();
+    room.pointTimer = null;
+    room.lastTick = Date.now();
+  }
+
   tick(room: Room, now = Date.now()): GameState {
     const dt = Math.min(0.033, Math.max(0.008, (now - room.lastTick) / 1000));
     room.lastTick = now;
 
+    if (room.mode === "online" && !hasBothPlayers(room) && room.state.phase !== "match_over") {
+      return serializeState(room.state);
+    }
+
     if (room.state.phase === "point") {
       if (room.pointTimer === null) room.pointTimer = now;
-      if (now - room.pointTimer > 900) {
+      if (now - room.pointTimer > 1100) {
         continueAfterPoint(room.state);
         room.pointTimer = null;
-        room.inputs = { left: { ...DEFAULT_INPUT }, right: { ...DEFAULT_INPUT } };
+        room.inputs = emptyInputs();
       }
       return serializeState(room.state);
     }
 
     room.pointTimer = null;
     step(room.state, room.inputs, dt);
+    room.inputs.left.hit = false;
+    room.inputs.right.hit = false;
     return serializeState(room.state);
   }
 
