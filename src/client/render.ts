@@ -283,12 +283,13 @@ function drawServeHint(ctx: CanvasRenderingContext2D, state: GameState, extras: 
   if (extras.mode === "online" && extras.role !== state.servingSide && extras.role !== "spectator") return;
 
   ctx.fillStyle = "rgba(12, 16, 28, 0.72)";
-  roundRect(ctx, server.x - 70, server.y - 190, 140, 28, 8);
+  const label = extras.mode === "local" || extras.role === state.servingSide ? `SERVE — ${key}` : "OPPONENT SERVES";
+  const boxW = Math.max(140, label.length * 7.2 + 20);
+  roundRect(ctx, server.x - boxW / 2, server.y - 190, boxW, 28, 8);
   ctx.fill();
   ctx.fillStyle = "#ffe7c2";
   ctx.font = "bold 12px ui-sans-serif, system-ui, sans-serif";
   ctx.textAlign = "center";
-  const label = extras.mode === "local" || extras.role === state.servingSide ? `SERVE — ${key}` : "OPPONENT SERVES";
   ctx.fillText(label, server.x, server.y - 171);
 }
 

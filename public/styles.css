@@ -265,6 +265,7 @@ h1 {
   height: auto;
   aspect-ratio: 960 / 540;
   background: #1b2a4a;
+  outline: none;
 }
 
 .overlay {
@@ -284,6 +285,17 @@ h1 {
 section[hidden],
 .error[hidden] {
   display: none !important;
+}
+
+.overlay .btn {
+  background: #f4efe6;
+  color: #171c27;
+  border-color: transparent;
+}
+
+.overlay .btn.primary {
+  background: var(--left);
+  color: #2a120c;
 }
 
 .overlay h2 {

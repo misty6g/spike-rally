@@ -75,6 +75,8 @@ function handleServer(msg: ServerMsg): void {
     waiting = Boolean(msg.waiting);
     menuEl.hidden = true;
     gameEl.hidden = false;
+    (document.activeElement as HTMLElement | null)?.blur();
+    canvas.focus();
     roomCodeEl.textContent = msg.code;
     roleEl.textContent =
       mode === "local" ? "LOCAL · both keyboards" : msg.role === "spectator" ? "SPECTATING" : `YOU · ${msg.role.toUpperCase()}`;
