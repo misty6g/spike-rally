@@ -45,10 +45,9 @@ export interface GameState {
   pointWinner: Side | null;
   matchWinner: Side | null;
   winScore: number;
+  rallyHits: number;
   tick: number;
 }
-
-export type InputAction = "left" | "right" | "jump" | "hit";
 
 export interface PlayerInput {
   left: boolean;
@@ -63,3 +62,6 @@ export const DEFAULT_INPUT: PlayerInput = {
   jump: false,
   hit: false,
 };
+
+export const WIN_SCORES = [15, 25] as const;
+export type WinScore = (typeof WIN_SCORES)[number];

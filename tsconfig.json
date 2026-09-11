@@ -12,6 +12,6 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": ["src/server/**/*.ts", "src/game/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/client"]
 }

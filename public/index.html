@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spike Rally — 2D Volleyball</title>
+    <meta name="description" content="Real-time 2D volleyball. Local couch play or join a WebSocket room." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Spike Rally</h1>
+            <p class="tag">Beach court · rally scoring · first to 15 or 25</p>
+          </div>
+        </div>
+        <a class="gh" href="https://github.com/misty6g/spike-rally" target="_blank" rel="noreferrer">github/misty6g</a>
+      </header>
+
+      <main>
+        <section id="menu" class="panel menu">
+          <p id="menu-error" class="error" hidden></p>
+          <div class="win-toggle" role="radiogroup" aria-label="Points to win">
+            <span>Play to</span>
+            <label><input type="radio" name="win-score" value="15" checked /> 15</label>
+            <label><input type="radio" name="win-score" value="25" /> 25</label>
+          </div>
+          <div class="actions">
+            <button id="btn-local" class="btn primary" type="button">Local 2-player</button>
+            <button id="btn-create" class="btn" type="button">Create online room</button>
+          </div>
+          <div class="join-row">
+            <input
+              id="join-code"
+              maxlength="8"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="ROOM CODE"
+              aria-label="Room code"
+            />
+            <button id="btn-join" class="btn" type="button">Join</button>
+          </div>
+          <dl class="controls">
+            <div>
+              <dt>Left (P1)</dt>
+              <dd>A / D move · W jump · Space hit / serve</dd>
+            </div>
+            <div>
+              <dt>Right (P2)</dt>
+              <dd>← / → move · ↑ jump · Enter hit / serve</dd>
+            </div>
+            <div>
+              <dt>Online</dt>
+              <dd>Either binding set controls your assigned side</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="game" hidden>
+          <div class="scoreboard" aria-live="polite">
+            <div class="side left">
+              <span class="label">LEFT</span>
+              <span id="score-left" class="digits">0</span>
+            </div>
+            <div class="mid">
+              <div id="win-target" class="chip">FIRST TO 15</div>
+              <div id="match-status" class="status">SERVE</div>
+              <div id="rally" class="rally">RALLY —</div>
+            </div>
+            <div class="side right">
+              <span class="label">RIGHT</span>
+              <span id="score-right" class="digits">0</span>
+            </div>
+          </div>
+
+          <div class="stage">
+            <canvas id="court" width="960" height="540" tabindex="0" aria-label="Volleyball court"></canvas>
+            <div id="overlay" class="overlay" hidden>
+              <h2 id="overlay-title"></h2>
+              <p id="overlay-body"></p>
+              <div class="overlay-actions">
+                <button id="btn-rematch" class="btn primary" type="button">Rematch</button>
+                <button id="btn-menu" class="btn" type="button">Main menu</button>
+              </div>
+            </div>
+          </div>
+
+          <footer class="hud-foot">
+            <div>
+              Room <strong id="room-code">-----</strong>
+              <button id="btn-copy" class="linkish" type="button">copy</button>
+            </div>
+            <div id="role-chip" class="chip">LOCAL</div>
+          </footer>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/js/client/main.js"></script>
+  </body>
+</html>

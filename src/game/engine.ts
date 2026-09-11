@@ -1,15 +1,19 @@
 import {
-  ballTouchingGround,
+  ballLanded,
   integrateBall,
   integratePlayer,
+  JUMP_VELOCITY,
+  PLAYER_SPEED,
   resolvePlayerBall,
   sideBounds,
 } from "./physics";
+import { isValidWinScore, matchWinnerOf, nextScore, winnerFromBallLand } from "./scoring";
 import {
   DEFAULT_INPUT,
   type GameState,
   type PlayerInput,
   type Side,
+  type WinScore,
 } from "./types";
 
 export function createInitialState(opts?: {
@@ -21,7 +25,8 @@ export function createInitialState(opts?: {
   const height = opts?.height ?? 540;
   const groundY = height - 48;
   const netX = width / 2;
-  const winScore = opts?.winScore ?? 7;
+  const requested = opts?.winScore ?? 15;
+  const winScore: WinScore = isValidWinScore(requested) ? requested : 15;
 
   const state: GameState = {
     width,
@@ -64,6 +69,7 @@ export function createInitialState(opts?: {
     pointWinner: null,
     matchWinner: null,
     winScore,
+    rallyHits: 0,
     tick: 0,
   };
   placeServe(state);
@@ -71,13 +77,15 @@ export function createInitialState(opts?: {
 }
 
 export function placeServe(state: GameState): void {
-  const server = state.players.find((p) => p.side === state.servingSide)!;
-  state.ball.x = server.x;
-  state.ball.y = state.groundY - 150;
+  const server = state.players.find((p) => p.side === state.servingSide);
+  if (!server) return;
+  state.ball.x = server.x + server.facing * 10;
+  state.ball.y = server.y - 150;
   state.ball.vx = 0;
   state.ball.vy = 0;
   state.phase = "serve";
   state.pointWinner = null;
+  state.rallyHits = 0;
 }
 
 export function resetPositions(state: GameState): void {
@@ -92,39 +100,45 @@ export function resetPositions(state: GameState): void {
   placeServe(state);
 }
 
-export function applyInput(
-  state: GameState,
-  side: Side,
-  input: PlayerInput,
-  dt: number
-): void {
+export function resetMatch(state: GameState): void {
+  state.score = { left: 0, right: 0 };
+  state.matchWinner = null;
+  state.pointWinner = null;
+  state.servingSide = "left";
+  state.rallyHits = 0;
+  resetPositions(state);
+}
+
+export function applyInput(state: GameState, side: Side, input: PlayerInput): void {
   const player = state.players.find((p) => p.side === side);
   if (!player || state.phase === "match_over" || state.phase === "point") return;
 
   player.vx = 0;
   if (input.left) {
-    player.vx = -320;
+    player.vx = -PLAYER_SPEED;
     player.facing = -1;
   }
   if (input.right) {
-    player.vx = 320;
+    player.vx = PLAYER_SPEED;
     player.facing = 1;
   }
+  if (input.left && input.right) player.vx = 0;
   if (input.jump && player.canJump) {
-    player.vy = -620;
+    player.vy = JUMP_VELOCITY;
     player.canJump = false;
   }
 
   if (state.phase === "serve" && state.servingSide === side && input.hit) {
     const dir = side === "left" ? 1 : -1;
-    state.ball.vx = dir * 280;
+    state.ball.vx = dir * 280 + player.vx * 0.4;
     state.ball.vy = -420;
     state.phase = "play";
+    state.rallyHits = 0;
     return;
   }
 
   if (state.phase === "play" && input.hit) {
-    resolvePlayerBall(player, state.ball, true);
+    if (resolvePlayerBall(player, state.ball, true)) state.rallyHits += 1;
   }
 }
 
@@ -133,26 +147,31 @@ export function step(
   inputs: Record<Side, PlayerInput>,
   dt: number
 ): GameState {
-  if (state.phase === "match_over") return state;
+  if (state.phase === "match_over" || state.phase === "point") return state;
 
-  if (state.phase === "point") {
-    return state;
-  }
-
-  applyInput(state, "left", inputs.left ?? DEFAULT_INPUT, dt);
-  applyInput(state, "right", inputs.right ?? DEFAULT_INPUT, dt);
+  applyInput(state, "left", inputs.left ?? DEFAULT_INPUT);
+  applyInput(state, "right", inputs.right ?? DEFAULT_INPUT);
 
   for (const p of state.players) integratePlayer(p, dt, state);
+
+  if (state.phase === "serve") {
+    const server = state.players.find((p) => p.side === state.servingSide);
+    if (server) {
+      state.ball.x = server.x + server.facing * 10;
+      state.ball.y = server.y - 150;
+      state.ball.vx = 0;
+      state.ball.vy = 0;
+    }
+  }
 
   if (state.phase === "play") {
     integrateBall(state.ball, dt, state);
     for (const p of state.players) {
-      resolvePlayerBall(p, state.ball, false);
+      if (resolvePlayerBall(p, state.ball, false)) state.rallyHits += 1;
     }
 
-    if (ballTouchingGround(state.ball, state.groundY)) {
-      const winner: Side = state.ball.x < state.netX ? "right" : "left";
-      awardPoint(state, winner);
+    if (ballLanded(state.ball, state.groundY)) {
+      awardPoint(state, winnerFromBallLand(state.ball.x, state.netX));
     }
   }
 
@@ -161,14 +180,16 @@ export function step(
 }
 
 export function awardPoint(state: GameState, winner: Side): void {
-  if (state.phase === "match_over") return;
-  state.score[winner] += 1;
+  if (state.phase === "match_over" || state.phase === "point") return;
+  state.score = nextScore(state.score, winner);
   state.pointWinner = winner;
-  state.phase = "point";
   state.servingSide = winner;
-  if (state.score[winner] >= state.winScore) {
-    state.matchWinner = winner;
+  const matchWinner = matchWinnerOf(state.score, state.winScore);
+  if (matchWinner) {
+    state.matchWinner = matchWinner;
     state.phase = "match_over";
+  } else {
+    state.phase = "point";
   }
 }
 
@@ -178,5 +199,5 @@ export function continueAfterPoint(state: GameState): void {
 }
 
 export function serializeState(state: GameState): GameState {
-  return JSON.parse(JSON.stringify(state)) as GameState;
+  return structuredClone(state);
 }
